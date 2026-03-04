@@ -1,0 +1,11 @@
+policy_type,policy_start_date,policy_end_date,loss_date,loss_type,claim_amount,sum_insured,deductible,fir_submitted,documents_complete,previous_claims
+comprehensive,2024-01-01,2025-01-01,2024-06-15,accident,150000,500000,5000,yes,yes,1
+third_party,2024-02-15,2025-02-15,2024-07-20,third_party_damage,80000,300000,3000,no,yes,0
+comprehensive,2023-12-01,2024-12-01,2024-08-10,theft,250000,600000,10000,yes,yes,3
+comprehensive,2024-03-01,2025-03-01,2024-09-05,fire,300000,800000,15000,yes,yes,2
+third_party,2024-04-10,2025-04-10,2024-10-12,own_damage,120000,400000,5000,no,yes,0
+comprehensive,2024-05-20,2025-05-20,2023-12-30,accident,180000,500000,8000,yes,yes,1
+comprehensive,2024-06-01,2025-06-01,2024-11-15,theft,200000,700000,12000,no,yes,1
+comprehensive,2024-01-15,2025-01-15,2024-08-22,accident,95000,500000,5000,yes,no,0
+comprehensive,2024-02-01,2025-02-01,2024-09-10,own_damage,350000,300000,10000,yes,yes,4
+third_party,2024-03-15,2025-03-15,2024-10-05,third_party_damage,150000,500000,7000,no,yes,2
