@@ -11,7 +11,7 @@ This module implements:
 
 from typing import Dict, List, Set, Tuple, Optional, Any
 from copy import deepcopy
-from fol_knowledge_representation import (
+from knowledge_representation import (
     Predicate, Rule, FOLKnowledgeBase, PredicateType
 )
 

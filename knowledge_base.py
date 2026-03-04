@@ -5,7 +5,7 @@ Contains all domain-specific knowledge, facts, and rules
 This module stores the knowledge separate from the representation structure
 """
 
-from fol_knowledge_representation import Rule, Predicate, PredicateType
+from knowledge_representation import Rule, Predicate, PredicateType
 
 
 class MotorInsuranceKnowledgeBase:

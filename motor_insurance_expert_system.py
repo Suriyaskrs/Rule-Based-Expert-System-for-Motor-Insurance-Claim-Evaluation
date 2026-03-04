@@ -11,10 +11,10 @@ Architecture:
 
 from datetime import datetime
 from typing import Dict, Any
-from fol_knowledge_representation import (
+from knowledge_representation import (
     FOLKnowledgeBase, Predicate, PredicateType
 )
-from fol_inference_engine import (
+from inference_engine import (
     FOLInferenceEngine, ReasoningMechanism
 )
 from knowledge_base import motor_insurance_kb
