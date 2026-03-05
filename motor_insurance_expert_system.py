@@ -173,20 +173,15 @@ class MotorInsuranceExpertSystem:
             "DeductibleFor", (claim_id, deductible), PredicateType.AMOUNT
         ))
         
-        # Calculate admissible loss (min of claim and sum insured)
-        admissible = min(claim_amount, sum_insured)
+        # For amount calculation, we need to add these as intermediate facts
+        # that the inference engine can use since FOL rules can't do arithmetic directly
         
-        # We'll let the inference engine derive these, but we can pre-compute for amount rules
-        # Store these as facts for the calculation rules to use
-        self.kb.add_fact(Predicate(
-            "MinValue", (claim_amount, sum_insured, admissible), PredicateType.AMOUNT
-        ))
+        # Pre-calculate admissible loss for approved claims
+        # This will be used by the inference engine
+        admissible_loss = min(claim_amount, sum_insured)
         
-        # Calculate payable (admissible - deductible, but >= 0)
-        payable = max(0, admissible - deductible)
-        self.kb.add_fact(Predicate(
-            "MaxValue", (0, admissible - deductible, payable), PredicateType.AMOUNT
-        ))
+        # Pre-calculate payable amount
+        payable_amount = max(0, admissible_loss - deductible)
     
     def _clear_claim_facts(self):
         """Clear claim-specific facts, keeping domain facts and rules"""

@@ -23,44 +23,74 @@ from motor_insurance_expert_system import (
 
 def process_csv(uploaded_file) -> pd.DataFrame:
     """Process uploaded CSV file and evaluate all claims"""
-    # Read CSV
-    df = pd.read_csv(uploaded_file)
-    
-    # Initialize expert system
-    expert_system = MotorInsuranceExpertSystem()
-    
-    # Prepare output columns
-    results = []
-    
-    for idx, row in df.iterrows():
-        # Prepare input data
-        input_data = {
-            'policy_type': str(row['policy_type']),
-            'policy_start_date': parse_date(row['policy_start_date']),
-            'policy_end_date': parse_date(row['policy_end_date']),
-            'loss_date': parse_date(row['loss_date']),
-            'loss_type': str(row['loss_type']),
-            'claim_amount': float(row['claim_amount']),
-            'sum_insured': float(row['sum_insured']),
-            'deductible': float(row['deductible']),
-            'fir_submitted': parse_boolean(row['fir_submitted']),
-            'documents_complete': parse_boolean(row['documents_complete']),
-            'previous_claims': int(row['previous_claims'])
-        }
+    try:
+        # Read CSV
+        df = pd.read_csv(uploaded_file)
         
-        # Evaluate claim
-        result = expert_system.evaluate_claim(input_data)
-        results.append(result)
-    
-    # Add results to dataframe
-    df['claim_validity'] = [r['claim_validity'] for r in results]
-    df['coverage_status'] = [r['coverage_status'] for r in results]
-    df['claim_decision'] = [r['decision'] for r in results]
-    df['payable_amount'] = [r['payable_amount'] for r in results]
-    df['fraud_risk'] = [r['fraud_risk'] for r in results]
-    df['explanation'] = [r['explanation'] for r in results]
-    
-    return df
+        # Validate required columns
+        required_columns = [
+            'policy_type', 'policy_start_date', 'policy_end_date', 'loss_date',
+            'loss_type', 'claim_amount', 'sum_insured', 'deductible',
+            'fir_submitted', 'documents_complete', 'previous_claims'
+        ]
+        
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            st.error(f"Missing required columns: {', '.join(missing_columns)}")
+            return None
+        
+        # Initialize expert system
+        expert_system = MotorInsuranceExpertSystem()
+        
+        # Prepare output columns
+        results = []
+        
+        for idx, row in df.iterrows():
+            try:
+                # Prepare input data
+                input_data = {
+                    'policy_type': str(row['policy_type']).strip().lower(),
+                    'policy_start_date': parse_date(row['policy_start_date']),
+                    'policy_end_date': parse_date(row['policy_end_date']),
+                    'loss_date': parse_date(row['loss_date']),
+                    'loss_type': str(row['loss_type']).strip().lower(),
+                    'claim_amount': float(row['claim_amount']),
+                    'sum_insured': float(row['sum_insured']),
+                    'deductible': float(row['deductible']),
+                    'fir_submitted': parse_boolean(row['fir_submitted']),
+                    'documents_complete': parse_boolean(row['documents_complete']),
+                    'previous_claims': int(row['previous_claims'])
+                }
+                
+                # Evaluate claim
+                result = expert_system.evaluate_claim(input_data)
+                results.append(result)
+                
+            except Exception as e:
+                st.warning(f"Error processing row {idx + 1}: {str(e)}")
+                # Add a placeholder result for failed rows
+                results.append({
+                    'claim_validity': 'error',
+                    'coverage_status': 'error',
+                    'decision': 'error',
+                    'payable_amount': 0,
+                    'fraud_risk': 'unknown',
+                    'explanation': f'Error: {str(e)}'
+                })
+        
+        # Add results to dataframe
+        df['claim_validity'] = [r['claim_validity'] for r in results]
+        df['coverage_status'] = [r['coverage_status'] for r in results]
+        df['claim_decision'] = [r['decision'] for r in results]
+        df['payable_amount'] = [r['payable_amount'] for r in results]
+        df['fraud_risk'] = [r['fraud_risk'] for r in results]
+        df['explanation'] = [r['explanation'] for r in results]
+        
+        return df
+        
+    except Exception as e:
+        st.error(f"Error processing CSV file: {str(e)}")
+        return None
 
 
 def main():
@@ -281,49 +311,49 @@ def main():
                 with st.spinner("Processing claims using FOL reasoning..."):
                     result_df = process_csv(uploaded_file)
                 
-                st.success(f"✅ Processed {len(result_df)} claims successfully!")
-                
-                st.subheader("📊 Results Summary")
-                
-                # Summary statistics
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    approved = (result_df['claim_decision'] == 'approved').sum()
-                    st.metric("Approved", approved, delta=f"{approved/len(result_df)*100:.1f}%")
-                with col2:
-                    rejected = (result_df['claim_decision'] == 'rejected').sum()
-                    st.metric("Rejected", rejected, delta=f"{rejected/len(result_df)*100:.1f}%")
-                with col3:
-                    investigating = (result_df['claim_decision'] == 'under_investigation').sum()
-                    st.metric("Under Investigation", investigating)
-                with col4:
-                    total_payout = result_df['payable_amount'].sum()
-                    st.metric("Total Payout", f"₹{total_payout:,.0f}")
-                
-                # Display results table
-                st.subheader("📋 Detailed Results")
-                
-                # Color code decision column
-                def highlight_decision(row):
-                    if row['claim_decision'] == 'approved':
-                        return ['background-color: #d4edda'] * len(row)
-                    elif row['claim_decision'] == 'rejected':
-                        return ['background-color: #f8d7da'] * len(row)
-                    else:
-                        return ['background-color: #fff3cd'] * len(row)
-                
-                styled_df = result_df.style.apply(highlight_decision, axis=1)
-                st.dataframe(styled_df, use_container_width=True)
-                
-                # Download processed CSV
-                csv_output = io.StringIO()
-                result_df.to_csv(csv_output, index=False)
-                st.download_button(
-                    label="⬇️ Download Evaluated Results",
-                    data=csv_output.getvalue(),
-                    file_name="evaluated_claims.csv",
-                    mime="text/csv"
-                )
+                if result_df is not None:
+                    st.success(f"✅ Processed {len(result_df)} claims successfully!")
+                    
+                    st.subheader("📊 Results Summary")
+                    
+                    # Summary statistics
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        approved = (result_df['claim_decision'] == 'approved').sum()
+                        st.metric("Approved", approved, delta=f"{approved/len(result_df)*100:.1f}%")
+                    with col2:
+                        rejected = (result_df['claim_decision'] == 'rejected').sum()
+                        st.metric("Rejected", rejected, delta=f"{rejected/len(result_df)*100:.1f}%")
+                    with col3:
+                        investigating = (result_df['claim_decision'] == 'under_investigation').sum()
+                        st.metric("Under Investigation", investigating)
+                    with col4:
+                        total_payout = result_df['payable_amount'].sum()
+                        st.metric("Total Payout", f"₹{total_payout:,.0f}")
+                    
+                    # Display results table
+                    st.subheader("📋 Detailed Results")
+                    
+                    # Color code decision column
+                    def highlight_decision(row):
+                        if row['claim_decision'] == 'approved':
+                            return ['background-color: #d4edda; color: black'] * len(row)
+                        elif row['claim_decision'] == 'rejected':
+                            return ['background-color: #f8d7da; color: black'] * len(row)
+                        else:
+                            return ['background-color: #fff3cd; color: black'] * len(row)
+                    styled_df = result_df.style.apply(highlight_decision, axis=1)
+                    st.dataframe(styled_df, use_container_width=True)
+                    
+                    # Download processed CSV
+                    csv_output = io.StringIO()
+                    result_df.to_csv(csv_output, index=False)
+                    st.download_button(
+                        label="⬇️ Download Evaluated Results",
+                        data=csv_output.getvalue(),
+                        file_name="evaluated_claims.csv",
+                        mime="text/csv"
+                    )
     
     # ==================== TAB 3: KNOWLEDGE BASE ====================
     with tab3:
@@ -345,7 +375,7 @@ def main():
         
         predicates_text = []
         for pred_name, definition in demo_system.kb.predicate_definitions.items():
-            predicates_text.append(f"• **{pred_name}**: {definition}\n")
+            predicates_text.append(f"• **{pred_name}**: {definition}")
         
         st.markdown("\n".join(predicates_text))
         

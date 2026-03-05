@@ -60,9 +60,6 @@ class Substitution:
     
     def __str__(self):
         return "{" + ", ".join(f"{k}: {v}" for k, v in self.bindings.items()) + "}"
-    
-    def __bool__(self):
-        return len(self.bindings) > 0
 
 
 class Unifier:
@@ -363,8 +360,8 @@ class ReasoningMechanism:
         # Query for decision
         decision = self._get_claim_decision(claim_id)
         
-        # Query for amounts
-        payable_amount = self._get_payable_amount(claim_id)
+        # Query for amounts - handle calculation here since FOL can't do arithmetic
+        payable_amount = self._calculate_payable_amount_from_facts(claim_id, decision)
         
         # Query for risk assessment
         fraud_risk = self._get_fraud_risk(claim_id)
@@ -387,6 +384,46 @@ class ReasoningMechanism:
             'inference_trace': self.engine.get_inference_trace()
         }
     
+    def _calculate_payable_amount_from_facts(self, claim_id: str, decision: str) -> float:
+        """
+        Calculate payable amount from facts in KB
+        
+        Since FOL can't do arithmetic, we extract the values and calculate here
+        """
+        # If not approved, return 0
+        if decision != "approved":
+            return 0.0
+        
+        # Get claim amount
+        claim_amt_facts = self.kb.get_facts_by_predicate("ClaimAmount")
+        claim_amount = 0.0
+        for fact in claim_amt_facts:
+            if claim_id in fact.arguments:
+                claim_amount = float(fact.arguments[-1])
+                break
+        
+        # Get sum insured
+        sum_insured_facts = self.kb.get_facts_by_predicate("SumInsuredFor")
+        sum_insured = 0.0
+        for fact in sum_insured_facts:
+            if claim_id in fact.arguments:
+                sum_insured = float(fact.arguments[-1])
+                break
+        
+        # Get deductible
+        deductible_facts = self.kb.get_facts_by_predicate("DeductibleFor")
+        deductible = 0.0
+        for fact in deductible_facts:
+            if claim_id in fact.arguments:
+                deductible = float(fact.arguments[-1])
+                break
+        
+        # Calculate
+        admissible_loss = min(claim_amount, sum_insured)
+        payable = max(0, admissible_loss - deductible)
+        
+        return payable
+    
     def _get_claim_decision(self, claim_id: str) -> str:
         """Determine claim decision from derived facts"""
         # Check if approved
@@ -408,15 +445,6 @@ class ReasoningMechanism:
                 return "under_investigation"
         
         return "pending"
-    
-    def _get_payable_amount(self, claim_id: str) -> float:
-        """Get payable amount from derived facts"""
-        payable_facts = self.kb.get_facts_by_predicate("PayableAmount")
-        for fact in payable_facts:
-            if claim_id in fact.arguments:
-                # Last argument should be the amount
-                return float(fact.arguments[-1])
-        return 0.0
     
     def _get_fraud_risk(self, claim_id: str) -> str:
         """Get fraud risk level from derived facts"""
@@ -470,12 +498,16 @@ class ReasoningMechanism:
         
         # Decision-based explanation
         if decision == "approved":
+            # Get payable amount for the explanation
+            payable = self._calculate_payable_amount_from_facts(claim_id, decision)
+            
             explanation_parts.append("✅ CLAIM APPROVED")
             explanation_parts.append(f"The claim {claim_id} has been approved because:")
             explanation_parts.append(f"  • Claim validity: {validity}")
             explanation_parts.append(f"  • Coverage status: {coverage}")
             explanation_parts.append(f"  • All mandatory documents were submitted")
             explanation_parts.append(f"  • Fraud risk assessment passed")
+            explanation_parts.append(f"  • Payable amount: ₹{payable:,.2f}")
             
         elif decision == "rejected":
             explanation_parts.append("❌ CLAIM REJECTED")
