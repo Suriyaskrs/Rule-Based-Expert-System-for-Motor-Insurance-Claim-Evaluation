@@ -261,18 +261,96 @@ def main():
             
             # FOL Inference Trace
             with st.expander("🔬 View FOL Inference Trace (Forward Chaining Process)", expanded=False):
-                st.code("\n".join(result['inference_trace']), language="text")
+                # Filter and format the trace for better readability
+                trace_lines = result['inference_trace']
+                
+                st.markdown("### 🔄 Inference Process")
+                st.markdown(f"**Total Iterations:** {result['inference_trace'].count('--- Iteration')}")
+                
+                # Show only fired rules
+                st.markdown("### ⚡ Rules Fired:")
+                for line in trace_lines:
+                    if "RULE FIRED" in line or "[Rule R" in line:
+                        # Extract rule info
+                        if "[Rule R" in line:
+                            rule_id = line.split("]")[0].replace("[", "").strip()
+                            st.markdown(f"**{rule_id}**")
+                    elif "Description:" in line:
+                        desc = line.split("Description:")[-1].strip()
+                        st.markdown(f"   📋 *{desc}*")
+                    elif "Derived:" in line:
+                        derived = line.split("Derived:")[-1].strip()
+                        st.success(f"   ✅ **Derived:** {derived}")
+                
+                # Option to view full trace
+                '''if st.checkbox("Show Complete Technical Trace", key=f"full_trace_{hash(str(result['inference_trace'][:5]))}"):
+                    st.code("\n".join(trace_lines), language="text")'''
             
             # Knowledge Base View
             with st.expander("📚 View Knowledge Base State", expanded=False):
-                kb_display = expert_system.display_knowledge_base()
-                st.code(kb_display, language="text")
-            
+                st.markdown("### 📋 Current Facts in Knowledge Base")
+                
+                # Group facts by category
+                fact_categories = {
+                    'Policy': [],
+                    'Claim': [],
+                    'Coverage': [],
+                    'Document': [],
+                    'Risk': [],
+                    'Decision': [],
+                    'Amount': []
+                }
+                
+                for fact in expert_system.kb.facts:
+                    fact_type = fact.predicate_type.value.title()
+                    if fact_type in fact_categories:
+                        fact_categories[fact_type].append(str(fact))
+                
+                # Display facts by category
+                for category, facts in fact_categories.items():
+                    if facts:
+                        with st.container():
+                            st.markdown(f"**{category} Facts ({len(facts)}):**")
+                            for fact in sorted(facts):
+                                st.markdown(f"   • {fact}")
+                
+                '''if st.checkbox("Show Raw KB Display", key=f"raw_kb_{result['claim_id']}"):
+                    kb_display = expert_system.display_knowledge_base()
+                    st.code(kb_display, language="text")'''
+                        
             # Reasoning Summary
             with st.expander("🧠 View Reasoning Summary", expanded=False):
-                reasoning_summary = expert_system.display_reasoning_summary()
-                st.code(reasoning_summary, language="text")
-    
+                st.markdown("### 🎯 Reasoning Process Summary")
+                
+                # Key metrics
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Total Facts Derived", len(expert_system.kb.facts))
+                with col2:
+                    st.metric("Inference Iterations", expert_system.inference_engine.iteration_count)
+                
+                st.markdown("---")
+                
+                # Decision path
+                st.markdown("### 🛤️ Decision Path")
+                decision_facts = [
+                    ('Claim Validity', expert_system.kb.get_facts_by_predicate('ValidClaim') or 
+                                    expert_system.kb.get_facts_by_predicate('InvalidClaim')),
+                    ('Coverage', expert_system.kb.get_facts_by_predicate('CoverageApplies') or 
+                                expert_system.kb.get_facts_by_predicate('NotCovered')),
+                    ('Final Decision', expert_system.kb.get_facts_by_predicate('Approved') or 
+                                    expert_system.kb.get_facts_by_predicate('Rejected') or
+                                    expert_system.kb.get_facts_by_predicate('UnderInvestigation'))
+                ]
+                
+                for step, facts in decision_facts:
+                    if facts:
+                        st.success(f"✅ **{step}:** {', '.join(str(f) for f in facts)}")
+                
+                '''if st.checkbox("Show Technical Summary", key=f"tech_summary_{result['claim_id']}"):
+                    reasoning_summary = expert_system.display_reasoning_summary()
+                    st.code(reasoning_summary, language="text")'''
+                
     # ==================== TAB 2: BATCH PROCESSING ====================
     with tab2:
         st.header("📂 Batch Claim Evaluation via CSV")
@@ -375,7 +453,7 @@ def main():
         
         predicates_text = []
         for pred_name, definition in demo_system.kb.predicate_definitions.items():
-            predicates_text.append(f"• **{pred_name}**: {definition}")
+            predicates_text.append(f"• **{pred_name}**: {definition}\n")
         
         st.markdown("\n".join(predicates_text))
         
